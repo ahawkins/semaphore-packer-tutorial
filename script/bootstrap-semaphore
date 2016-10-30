@@ -7,7 +7,7 @@ main() {
 
 	unzip packer.zip -d "/usr/bin"
 
-	pip install ansible
+	pip install ansible boto
 }
 
 main "$@"
