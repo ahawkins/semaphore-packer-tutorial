@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+main() {
+	local scratch
+	scratch="$(mktemp -d)"
+
+	curl "https://releases.hashicorp.com/packer/0.11.0/packer_0.11.0_linux_amd64.zip" > packer.zip
+
+	unzip packer.zip -d "${scratch}"
+
+	ln -s "${scratch}/packer" "/usr/bin/packer"
+
+	pip install ansible
+}
+
+main "$@"
