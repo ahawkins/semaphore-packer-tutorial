@@ -1,0 +1,105 @@
+Description: "Autoscaling golden image example"
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t2.medium
+    Description: Instance for each machine
+  AMI:
+    Type: AWS::EC2::Image::Id
+    Description: AMI to use in the auto scaling group
+  ApplicationPort:
+    Type: Number
+    Description: Port for application communication
+  HealthCheckPath:
+    Type: String
+    Description: Path for HTTP healthcheck
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Path for HTTP healthcheck
+  MinSize:
+    Type: Number
+    Description: Minimum machines in the auto scaling group
+    Default: "1"
+  MaxSize:
+    Type: Number
+    Description: Maximum machines in the auto scaling group
+    Default: "1"
+
+Resources:
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP traffic from ELB and SSH from anywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ApplicationPort
+          ToPort: !Ref ApplicationPort
+          SourceSecurityGroupOwnerId:
+            Fn::GetAtt:
+              - LoadBalancer
+              - SourceSecurityGroup.OwnerAlias
+          SourceSecurityGroupName:
+            Fn::GetAtt:
+              - LoadBalancer
+              - SourceSecurityGroup.GroupName
+
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: "0.0.0.0/0"
+
+  LoadBalancer:
+    Type: "AWS::ElasticLoadBalancing::LoadBalancer"
+    Properties:
+      Scheme: internet-facing
+      AvailabilityZones:
+        Fn::GetAZs: ''
+      Listeners:
+        - LoadBalancerPort: '80'
+          InstancePort: !Ref ApplicationPort
+          Protocol: HTTP
+      HealthCheck:
+        Target:
+          Fn::Join:
+            - ''
+            - - 'HTTP:'
+              - Ref: ApplicationPort
+              - Ref: HealthCheckPath
+        HealthyThreshold: '3'
+        UnhealthyThreshold: '5'
+        Interval: '30'
+        Timeout: '5'
+
+  LaunchConfig:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AMI
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - Fn::GetAtt:
+          - ApplicationSecurityGroup
+          - GroupId
+
+  AutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      AvailabilityZones:
+        Fn::GetAZs: ""
+      LaunchConfigurationName: !Ref LaunchConfig
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      LoadBalancerNames:
+        - Ref: "LoadBalancer"
+
+Outputs:
+  URL:
+    Description: "Public URL for ELB"
+    Value: 
+      Fn::Join:
+        - ""
+        - - http://
+          - Fn::GetAtt:
+            - LoadBalancer
+            - DNSName

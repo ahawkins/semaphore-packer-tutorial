@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+main() {
+	local log_file ami src_package=tmp/src.tar.gz
+
+	log_file="$(mktemp)"
+
+	mkdir -p "$(dirname "${src_package}")"
+
+	tar -czf "${src_package}" .
+
+	packer build -color=false -var "src_package=${src_package}" packer.json | tee "${log_file}"
+
+	ami="$(tail -n 1 "${log_file}" | cut -d ' ' -f 2)"
+
+	ansible-playbook deploy.yml --extra-vars "ami=${ami}"
+}
+
+main "$@"

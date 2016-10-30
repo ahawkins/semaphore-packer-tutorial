@@ -1,0 +1,33 @@
+{
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "ap-southeast-1",
+      "source_ami": "ami-a1288ec2",
+      "instance_type": "c4.large",
+      "ssh_username": "ubuntu",
+      "ami_name": "semaphore-packer-tutorial-{{timestamp}}",
+      "associate_public_ip_address": true
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "script": "install-ansible.sh",
+      "pause_before": "10s",
+      "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E {{ .Path }}"
+    },
+    {
+      "type": "file",
+      "source": "{{ user `src_package` }}",
+      "destination": "/tmp/app.tar.gz"
+    },
+    {
+      "type": "ansible-local",
+      "playbook_file": "configure-ami.yml",
+      "extra_arguments": [
+        "--extra-vars 'src_package=/tmp/app.tar.gz'"
+      ]
+    }
+  ]
+}

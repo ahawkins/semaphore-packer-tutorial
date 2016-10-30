@@ -1,0 +1,13 @@
+{
+  "name": "semaphore-packer-tutorial",
+  "version": "1.0.0",
+  "description": "Demonstrate how to use Packer for golden image deployments",
+  "dependencies": {
+    "express": "~4.14.0"
+  },
+  "scripts": {
+    "start": "node script/start.js"
+  },
+  "author": "",
+  "license": "ISC"
+}

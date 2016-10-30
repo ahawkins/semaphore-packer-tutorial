@@ -1,0 +1,34 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars: 
+    region: ap-southeast-1
+    port: "8080"
+    healthcheck_path: "/"
+    key_name: semaphore-packer-tutorial
+
+  tasks:
+    - name: Deploy CloudFormation stack
+      cloudformation:
+        state: present
+        region: "{{ region }}"
+        stack_name: semaphore-packer-tutorial
+        disable_rollback: true
+        template: cloudformation.yml
+        template_parameters:
+          AMI: "{{ ami }}"
+          HealthCheckPath: "{{ healthcheck_path }}"
+          ApplicationPort: "{{ port }}"
+          KeyName: "{{ key_name }}"
+      register: cf
+
+    - name: Wait for switch over
+      pause:
+        seconds: 15
+
+    - name: Test deployment
+      uri:
+        url: "{{ cf.stack_outputs.URL }}"
+        status: 200
+

@@ -1,0 +1,98 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  # Run all commands via sudo
+  become: true
+
+  # Define variables in this playbook. Here we just need a directory
+  # to extract source code to
+  vars:
+    src_dir: "/opt/app"
+
+  tasks:
+    - name: Install Docker pre-res
+      apt:
+        state: present
+        name: "{{ item }}"
+      with_items:
+        - apt-transport-https 
+        - ca-certificates
+
+    - name: Setup docker repo key
+      # NOTE: Uncertain how to do this with apt_key module since it 
+      # does not support the --recv-keys arguments
+      command: apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+
+    - name: Setup docker apt repo
+      apt_repository:
+        state: present
+        repo: deb https://apt.dockerproject.org/repo ubuntu-xenial main
+        update_cache: yes
+
+      # This purges any references to an outdated package. It may/may not
+      # exit on the host system to ignore_errors is allowed.
+    - name: Purge old docker config files
+      apt: 
+        state: absent
+        name: lxc-docker
+        purge: yes
+
+    - name: Install docker
+      apt:
+        state: present
+        name: docker-engine
+
+    - name: Start docker
+      service:
+        state: started
+        name: docker
+
+    - name: Create src code directory
+      file:
+        state: directory
+        dest: "{{ src_dir }}"
+
+    - name: Extract source code
+      unarchive:
+        src: "{{ src_package }}"
+        dest: "{{ src_dir }}"
+
+    - name: Build Docker image
+      docker_image:
+        state: present
+        name: app
+        path: "{{ src_dir }}"
+
+    - name: Start application container
+      docker:
+        state: started
+        name: app
+        image: app
+        # Tell docker to restart the container if it dies for some reason
+        restart_policy: always
+        # Send logs to journald since Ubuntu 16.04 uses systemd
+        log_driver: journald
+        # Set the PORT environment variable required for script/start.js
+        env:
+          PORT: "8080"
+        # NOTE: for some reason expose is required to set ports. This goes against
+        # the Docker CLI and is generally a weird UX when using this module.
+        expose:
+          - "8080"
+        ports:
+          - "8080:8080"
+
+    - name: Wait for the container to start
+      pause:
+        seconds: 10
+
+      # Run a smoke test. This ensures the container is running and accepting
+      # traffic on the inended port. If this passes, the AMI should be good to
+      # go
+    - name: Smoke test running container
+      uri:
+        url: http://localhost:8080
+        method: GET
+        status: 200
