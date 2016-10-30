@@ -13,6 +13,9 @@ main() {
 	ln -s "${scratch}/packer" "/usr/bin/packer"
 
 	pip install ansible
+
+	packer --version
+	ansible --version
 }
 
 main "$@"
